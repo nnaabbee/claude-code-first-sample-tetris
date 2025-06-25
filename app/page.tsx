@@ -20,6 +20,7 @@ export default function Home() {
     gameOver,
     isPaused,
     score,
+    highScore,
     isInitialized,
     lockedCells,
     moveLeft,
@@ -115,6 +116,7 @@ export default function Home() {
         />
         <ScoreDisplay 
           score={score}
+          highScore={highScore}
           gameOver={gameOver}
           isPaused={isPaused}
           isBGMPlaying={isBGMPlaying}

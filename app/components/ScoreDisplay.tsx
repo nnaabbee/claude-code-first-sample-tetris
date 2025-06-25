@@ -2,6 +2,7 @@ import React from 'react'
 
 interface ScoreDisplayProps {
   score: number
+  highScore: number
   gameOver: boolean
   isPaused: boolean
   isBGMPlaying: boolean
@@ -12,6 +13,7 @@ interface ScoreDisplayProps {
 
 export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({ 
   score, 
+  highScore,
   gameOver, 
   isPaused,
   isBGMPlaying, 
@@ -21,7 +23,8 @@ export const ScoreDisplay: React.FC<ScoreDisplayProps> = ({
 }) => {
   return (
     <div>
-      <h2 style={{ fontSize: '24px', marginBottom: '20px' }}>Score: {score}</h2>
+      <h2 style={{ fontSize: '24px', marginBottom: '10px' }}>Score: {score}</h2>
+      <h3 style={{ fontSize: '18px', marginBottom: '20px', color: '#ffd700' }}>Best: {highScore}</h3>
       {gameOver && (
         <div>
           <h2 style={{ color: 'red', fontSize: '24px' }}>Game Over</h2>

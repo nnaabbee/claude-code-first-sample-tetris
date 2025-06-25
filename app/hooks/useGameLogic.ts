@@ -16,11 +16,30 @@ export const useGameLogic = () => {
   const [gameOver, setGameOver] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [score, setScore] = useState(0)
+  const [highScore, setHighScore] = useState(0)
   const [isInitialized, setIsInitialized] = useState(false)
   const [lockedCells, setLockedCells] = useState<Set<string>>(new Set())
 
   const { getNextPieceFromBag, initializeBags, updateBags } = usePieceGeneration()
   const { playLockSound } = useSE()
+
+  // Load high score from localStorage
+  useEffect(() => {
+    const savedHighScore = localStorage.getItem('tetris-high-score')
+    if (savedHighScore) {
+      setHighScore(parseInt(savedHighScore, 10))
+    }
+  }, [])
+
+  // Save high score to localStorage when game over
+  useEffect(() => {
+    if (gameOver && score > 0) {
+      if (score > highScore) {
+        setHighScore(score)
+        localStorage.setItem('tetris-high-score', score.toString())
+      }
+    }
+  }, [gameOver, score, highScore])
 
   // Initialize game
   useEffect(() => {
@@ -289,6 +308,7 @@ export const useGameLogic = () => {
     gameOver,
     isPaused,
     score,
+    highScore,
     isInitialized,
     lockedCells,
     
