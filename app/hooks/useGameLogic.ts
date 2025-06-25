@@ -281,6 +281,28 @@ export const useGameLogic = () => {
     const displayBoard = board.map(row => [...row])
     const shape = currentPiece.shape
     
+    // Calculate ghost piece position (hard drop position)
+    let ghostY = position.y
+    while (isValidMove(currentPiece, position.x, ghostY + 1)) {
+      ghostY++
+    }
+    
+    // Draw ghost piece first (so active piece can override it)
+    if (ghostY !== position.y) { // Only show ghost if it's different from current position
+      for (let py = 0; py < shape.length; py++) {
+        for (let px = 0; px < shape[py].length; px++) {
+          if (shape[py][px]) {
+            const boardY = ghostY + py
+            const boardX = position.x + px
+            if (boardY >= 0 && boardY < BOARD_HEIGHT && boardX >= 0 && boardX < BOARD_WIDTH && displayBoard[boardY][boardX] === 0) {
+              displayBoard[boardY][boardX] = -2 // Ghost piece marker
+            }
+          }
+        }
+      }
+    }
+    
+    // Draw active piece (this will override ghost piece at same position)
     for (let py = 0; py < shape.length; py++) {
       for (let px = 0; px < shape[py].length; px++) {
         if (shape[py][px]) {
