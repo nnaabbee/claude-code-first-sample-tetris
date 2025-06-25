@@ -36,17 +36,160 @@ export default function Home() {
   const [gameOver, setGameOver] = useState(false)
   const [score, setScore] = useState(0)
   const [isInitialized, setIsInitialized] = useState(false)
+  const [lockedCells, setLockedCells] = useState<Set<string>>(new Set())
+  const [isBGMPlaying, setIsBGMPlaying] = useState(true)
+  const [bgmInterval, setBgmInterval] = useState<NodeJS.Timeout | null>(null)
+  const [pieceBag, setPieceBag] = useState<number[]>([])
+  const [nextPieceBag, setNextPieceBag] = useState<number[]>([])
+
+  // 7-bag system for uniform piece distribution
+  const createNewBag = useCallback((): number[] => {
+    const bag = [0, 1, 2, 3, 4, 5, 6] // All 7 piece types
+    // Shuffle the bag using Fisher-Yates algorithm
+    for (let i = bag.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[bag[i], bag[j]] = [bag[j], bag[i]]
+    }
+    return bag
+  }, [])
+
+  const getNextPieceFromBag = useCallback((): { pieceIndex: number, newBag: number[], newNextBag: number[] } => {
+    let currentBag = [...pieceBag]
+    let nextBag = [...nextPieceBag]
+    
+    // If current bag is empty, create a new one
+    if (currentBag.length === 0) {
+      currentBag = createNewBag()
+    }
+    
+    // If next bag is empty, create a new one
+    if (nextBag.length === 0) {
+      nextBag = createNewBag()
+    }
+    
+    // Take the next piece from current bag
+    const pieceIndex = currentBag.shift()!
+    
+    return { pieceIndex, newBag: currentBag, newNextBag: nextBag }
+  }, [pieceBag, nextPieceBag, createNewBag])
 
   useEffect(() => {
     if (!isInitialized) {
-      const randomPiece = PIECES[Math.floor(Math.random() * PIECES.length)]
-      const randomNextPiece = PIECES[Math.floor(Math.random() * PIECES.length)]
-      setCurrentPiece(randomPiece)
-      setCurrentColor(randomPiece.color)
-      setNextPiece(randomNextPiece)
+      // Initialize with bag system
+      const firstBag = createNewBag()
+      const secondBag = createNewBag()
+      
+      // Get first two pieces
+      const firstPieceIndex = firstBag.shift()!
+      const secondPieceIndex = firstBag.shift()!
+      
+      setCurrentPiece(PIECES[firstPieceIndex])
+      setCurrentColor(PIECES[firstPieceIndex].color)
+      setNextPiece(PIECES[secondPieceIndex])
+      setPieceBag(firstBag)
+      setNextPieceBag(secondBag)
       setIsInitialized(true)
     }
-  }, [isInitialized])
+  }, [isInitialized, createNewBag])
+
+  const playLockSound = useCallback(() => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      // Create a "click" sound
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime)
+      oscillator.frequency.exponentialRampToValueAtTime(400, audioContext.currentTime + 0.1)
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15)
+      
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.15)
+    } catch (error) {
+      // Fallback for browsers that don't support Web Audio API
+      console.log('Audio not supported')
+    }
+  }, [])
+
+  const playBGMNote = useCallback(() => {
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+      const oscillator = audioContext.createOscillator()
+      const gainNode = audioContext.createGain()
+      
+      oscillator.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      // テトリス風のメロディー
+      const melody = [523.25, 587.33, 659.25, 698.46, 783.99, 659.25, 587.33, 523.25] // C-D-E-F-G-E-D-C
+      const noteIndex = Math.floor(Date.now() / 500) % melody.length
+      
+      oscillator.type = 'square'
+      oscillator.frequency.setValueAtTime(melody[noteIndex], audioContext.currentTime)
+      
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime)
+      gainNode.gain.linearRampToValueAtTime(0.005, audioContext.currentTime + 0.05)
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.4)
+      
+      oscillator.start(audioContext.currentTime)
+      oscillator.stop(audioContext.currentTime + 0.5)
+    } catch (error) {
+      console.log('BGM note not supported')
+    }
+  }, [])
+
+  const startBGM = useCallback(() => {
+    // Stop any existing interval first
+    if (bgmInterval) {
+      clearInterval(bgmInterval)
+      setBgmInterval(null)
+    }
+    
+    // Play first note immediately
+    playBGMNote()
+    
+    // Then play every 500ms
+    const interval = setInterval(() => {
+      playBGMNote()
+    }, 500)
+    
+    setBgmInterval(interval)
+  }, [playBGMNote, bgmInterval])
+
+  const stopBGM = useCallback(() => {
+    if (bgmInterval) {
+      clearInterval(bgmInterval)
+      setBgmInterval(null)
+    }
+  }, [bgmInterval])
+
+
+  const toggleBGM = useCallback(() => {
+    if (isBGMPlaying) {
+      // Stop BGM
+      stopBGM()
+      setIsBGMPlaying(false)
+    } else {
+      // Start BGM
+      setIsBGMPlaying(true)
+      // Use setTimeout to ensure state is updated before starting BGM
+      setTimeout(() => {
+        startBGM()
+      }, 50)
+    }
+  }, [isBGMPlaying, stopBGM, startBGM])
+
+  // Auto-start BGM when game initializes
+  useEffect(() => {
+    if (isInitialized && isBGMPlaying && !bgmInterval) {
+      startBGM()
+    }
+  }, [isInitialized, isBGMPlaying, bgmInterval, startBGM])
 
   const rotate = (piece: Piece): Piece => {
     const shape = piece.shape
@@ -82,6 +225,8 @@ export default function Home() {
   const lockPiece = useCallback(() => {
     const newBoard = board.map(row => [...row])
     const shape = currentPiece.shape
+    const newLockedCells = new Set<string>()
+    
     for (let py = 0; py < shape.length; py++) {
       for (let px = 0; px < shape[py].length; px++) {
         if (shape[py][px]) {
@@ -90,10 +235,19 @@ export default function Home() {
           if (boardY >= 0) {
             // Use the piece ID to identify the piece type
             newBoard[boardY][boardX] = currentPiece.id + 1
+            // Add to locked cells for visual effect
+            newLockedCells.add(`${boardX}-${boardY}`)
           }
         }
       }
     }
+    
+    // Play lock sound
+    playLockSound()
+    
+    // Show visual feedback for locked cells
+    setLockedCells(newLockedCells)
+    setTimeout(() => setLockedCells(new Set()), 200) // Clear effect after 200ms
 
     const fullRows: number[] = []
     newBoard.forEach((row, index) => {
@@ -120,14 +274,20 @@ export default function Home() {
     setBoard(clearedBoard)
     setCurrentPiece(nextPiece)
     setCurrentColor(nextPiece.color)
-    setNextPiece(PIECES[Math.floor(Math.random() * PIECES.length)])
+    
+    // Use bag system for next piece
+    const { pieceIndex, newBag, newNextBag } = getNextPieceFromBag()
+    setNextPiece(PIECES[pieceIndex])
+    setPieceBag(newBag)
+    setNextPieceBag(newNextBag)
+    
     setPosition({ x: 4, y: 0 })
     setCanHold(true) // Reset hold ability after piece is locked
 
     if (!isValidMove(nextPiece, 4, 0)) {
       setGameOver(true)
     }
-  }, [board, currentPiece, position, isValidMove, nextPiece])
+  }, [board, currentPiece, position, isValidMove, nextPiece, playLockSound, getNextPieceFromBag])
 
   const moveDown = useCallback(() => {
     if (isValidMove(currentPiece, position.x, position.y + 1)) {
@@ -165,6 +325,8 @@ export default function Home() {
     // Update position and lock piece with the new position
     const newBoard = board.map(row => [...row])
     const shape = currentPiece.shape
+    const newLockedCells = new Set<string>()
+    
     for (let py = 0; py < shape.length; py++) {
       for (let px = 0; px < shape[py].length; px++) {
         if (shape[py][px]) {
@@ -172,10 +334,19 @@ export default function Home() {
           const boardX = position.x + px
           if (boardY >= 0) {
             newBoard[boardY][boardX] = currentPiece.id + 1
+            // Add to locked cells for visual effect
+            newLockedCells.add(`${boardX}-${boardY}`)
           }
         }
       }
     }
+    
+    // Play lock sound
+    playLockSound()
+    
+    // Show visual feedback for locked cells
+    setLockedCells(newLockedCells)
+    setTimeout(() => setLockedCells(new Set()), 200) // Clear effect after 200ms
 
     const fullRows: number[] = []
     newBoard.forEach((row, index) => {
@@ -202,14 +373,20 @@ export default function Home() {
     setBoard(clearedBoard)
     setCurrentPiece(nextPiece)
     setCurrentColor(nextPiece.color)
-    setNextPiece(PIECES[Math.floor(Math.random() * PIECES.length)])
+    
+    // Use bag system for next piece
+    const { pieceIndex, newBag, newNextBag } = getNextPieceFromBag()
+    setNextPiece(PIECES[pieceIndex])
+    setPieceBag(newBag)
+    setNextPieceBag(newNextBag)
+    
     setPosition({ x: 4, y: 0 })
     setCanHold(true) // Reset hold ability after hard drop
 
     if (!isValidMove(nextPiece, 4, 0)) {
       setGameOver(true)
     }
-  }, [currentPiece, position, board, isValidMove, nextPiece])
+  }, [currentPiece, position, board, isValidMove, nextPiece, playLockSound, getNextPieceFromBag])
 
   const holdCurrentPiece = useCallback(() => {
     if (!canHold) return
@@ -219,7 +396,12 @@ export default function Home() {
       setHoldPiece(currentPiece)
       setCurrentPiece(nextPiece)
       setCurrentColor(nextPiece.color)
-      setNextPiece(PIECES[Math.floor(Math.random() * PIECES.length)])
+      
+      // Use bag system for next piece
+      const { pieceIndex, newBag, newNextBag } = getNextPieceFromBag()
+      setNextPiece(PIECES[pieceIndex])
+      setPieceBag(newBag)
+      setNextPieceBag(newNextBag)
     } else {
       // Swap current piece with held piece
       const temp = currentPiece
@@ -230,22 +412,30 @@ export default function Home() {
     
     setPosition({ x: 4, y: 0 })
     setCanHold(false) // Prevent holding again until next piece
-  }, [canHold, holdPiece, currentPiece, nextPiece])
+  }, [canHold, holdPiece, currentPiece, nextPiece, getNextPieceFromBag])
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (gameOver || !isInitialized) return
       
       switch (e.key) {
+        case 'a':
+        case 'A':
         case 'ArrowLeft':
           moveLeft()
           break
+        case 'd':
+        case 'D':
         case 'ArrowRight':
           moveRight()
           break
+        case 's':
+        case 'S':
         case 'ArrowDown':
           moveDown()
           break
+        case 'w':
+        case 'W':
         case 'ArrowUp':
           hardDrop()
           break
@@ -254,6 +444,7 @@ export default function Home() {
           break
         case 'h':
         case 'H':
+        case 'Shift':
           holdCurrentPiece()
           break
       }
@@ -272,6 +463,19 @@ export default function Home() {
 
     return () => clearInterval(interval)
   }, [moveDown, gameOver, isInitialized])
+
+  // Clean up BGM on component unmount or game over
+  useEffect(() => {
+    if (gameOver) {
+      stopBGM()
+    }
+  }, [gameOver, stopBGM])
+
+  useEffect(() => {
+    return () => {
+      stopBGM()
+    }
+  }, [stopBGM])
 
   const renderBoard = () => {
     if (!isInitialized) {
@@ -355,7 +559,10 @@ export default function Home() {
                     width: '20px',
                     height: '20px',
                     backgroundColor: cell === 0 ? '#111' : cell === -1 ? currentColor : PIECES[cell - 1]?.color || '#999',
-                    border: '1px solid #333'
+                    border: '1px solid #333',
+                    boxShadow: lockedCells.has(`${x}-${y}`) ? '0 0 10px #fff, inset 0 0 10px #fff' : 'none',
+                    transform: lockedCells.has(`${x}-${y}`) ? 'scale(1.1)' : 'scale(1)',
+                    transition: 'all 0.2s ease'
                   }}
                 />
               ))}
@@ -365,9 +572,26 @@ export default function Home() {
         <div>
           <h3 style={{ margin: '0 0 10px 0' }}>Score</h3>
           <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{score}</div>
+          <button
+            onClick={toggleBGM}
+            style={{
+              marginTop: '20px',
+              padding: '10px 15px',
+              backgroundColor: isBGMPlaying ? '#4CAF50' : '#f44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              minWidth: '80px'
+            }}
+          >
+            🎵 {isBGMPlaying ? 'ON' : 'OFF'}
+          </button>
         </div>
       </div>
-      <p style={{ marginTop: '10px' }}>Arrow Keys: Move | Up: Hard Drop | Space: Rotate | H: Hold</p>
+      <p style={{ marginTop: '10px' }}>Arrow Keys: Move | Up: Hard Drop | Space: Rotate | H/Shift: Hold</p>
     </div>
   )
 }
