@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 type Piece = {
   shape: number[][]
   color: string
+  id: number
 }
 type Board = number[][]
 
@@ -13,13 +14,13 @@ const BOARD_HEIGHT = 20
 const TICK_SPEED = 500
 
 const PIECES: Piece[] = [
-  { shape: [[1, 1, 1, 1]], color: '#00ffff' }, // I - cyan
-  { shape: [[1, 1], [1, 1]], color: '#ffff00' }, // O - yellow
-  { shape: [[0, 1, 0], [1, 1, 1]], color: '#ff00ff' }, // T - purple
-  { shape: [[1, 0, 0], [1, 1, 1]], color: '#ff7f00' }, // L - orange
-  { shape: [[0, 0, 1], [1, 1, 1]], color: '#0000ff' }, // J - blue
-  { shape: [[1, 1, 0], [0, 1, 1]], color: '#00ff00' }, // S - green
-  { shape: [[0, 1, 1], [1, 1, 0]], color: '#ff0000' }, // Z - red
+  { shape: [[1, 1, 1, 1]], color: '#00ffff', id: 0 }, // I - cyan
+  { shape: [[1, 1], [1, 1]], color: '#ffff00', id: 1 }, // O - yellow
+  { shape: [[0, 1, 0], [1, 1, 1]], color: '#ff00ff', id: 2 }, // T - purple
+  { shape: [[1, 0, 0], [1, 1, 1]], color: '#ff7f00', id: 3 }, // L - orange
+  { shape: [[0, 0, 1], [1, 1, 1]], color: '#0000ff', id: 4 }, // J - blue
+  { shape: [[1, 1, 0], [0, 1, 1]], color: '#00ff00', id: 5 }, // S - green
+  { shape: [[0, 1, 1], [1, 1, 0]], color: '#ff0000', id: 6 }, // Z - red
 ]
 
 export default function Home() {
@@ -56,7 +57,7 @@ export default function Home() {
         rotated[j][rows - 1 - i] = shape[i][j]
       }
     }
-    return { shape: rotated, color: piece.color }
+    return { shape: rotated, color: piece.color, id: piece.id }
   }
 
   const isValidMove = useCallback((piece: Piece, x: number, y: number): boolean => {
@@ -85,11 +86,8 @@ export default function Home() {
           const boardY = position.y + py
           const boardX = position.x + px
           if (boardY >= 0) {
-            // Find piece index by comparing shapes instead of object reference
-            const pieceIndex = PIECES.findIndex(p => 
-              JSON.stringify(p.shape) === JSON.stringify(currentPiece.shape)
-            )
-            newBoard[boardY][boardX] = pieceIndex + 1
+            // Use the piece ID to identify the piece type
+            newBoard[boardY][boardX] = currentPiece.id + 1
           }
         }
       }
@@ -126,7 +124,7 @@ export default function Home() {
     if (!isValidMove(nextPiece, 4, 0)) {
       setGameOver(true)
     }
-  }, [board, currentPiece, position, isValidMove])
+  }, [board, currentPiece, position, isValidMove, nextPiece])
 
   const moveDown = useCallback(() => {
     if (isValidMove(currentPiece, position.x, position.y + 1)) {
