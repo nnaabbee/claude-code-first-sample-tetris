@@ -30,6 +30,8 @@ export default function Home() {
   const [currentPiece, setCurrentPiece] = useState<Piece>(PIECES[0])
   const [currentColor, setCurrentColor] = useState<string>(PIECES[0].color)
   const [nextPiece, setNextPiece] = useState<Piece>(PIECES[1])
+  const [holdPiece, setHoldPiece] = useState<Piece | null>(null)
+  const [canHold, setCanHold] = useState(true)
   const [position, setPosition] = useState({ x: 4, y: 0 })
   const [gameOver, setGameOver] = useState(false)
   const [score, setScore] = useState(0)
@@ -120,6 +122,7 @@ export default function Home() {
     setCurrentColor(nextPiece.color)
     setNextPiece(PIECES[Math.floor(Math.random() * PIECES.length)])
     setPosition({ x: 4, y: 0 })
+    setCanHold(true) // Reset hold ability after piece is locked
 
     if (!isValidMove(nextPiece, 4, 0)) {
       setGameOver(true)
@@ -153,9 +156,85 @@ export default function Home() {
     }
   }, [currentPiece, position, isValidMove])
 
+  const hardDrop = useCallback(() => {
+    let newY = position.y
+    while (isValidMove(currentPiece, position.x, newY + 1)) {
+      newY++
+    }
+    
+    // Update position and lock piece with the new position
+    const newBoard = board.map(row => [...row])
+    const shape = currentPiece.shape
+    for (let py = 0; py < shape.length; py++) {
+      for (let px = 0; px < shape[py].length; px++) {
+        if (shape[py][px]) {
+          const boardY = newY + py
+          const boardX = position.x + px
+          if (boardY >= 0) {
+            newBoard[boardY][boardX] = currentPiece.id + 1
+          }
+        }
+      }
+    }
+
+    const fullRows: number[] = []
+    newBoard.forEach((row, index) => {
+      if (row.every(cell => cell !== 0)) {
+        fullRows.push(index)
+      }
+    })
+    
+    const clearedBoard = newBoard.filter((_, index) => !fullRows.includes(index))
+    const clearedLines = fullRows.length
+    
+    for (let i = 0; i < clearedLines; i++) {
+      clearedBoard.unshift(Array(BOARD_WIDTH).fill(0))
+    }
+
+    if (clearedLines > 0) {
+      if (clearedLines === 4) {
+        setScore(prev => prev + 1000)
+      } else {
+        setScore(prev => prev + clearedLines * 100)
+      }
+    }
+
+    setBoard(clearedBoard)
+    setCurrentPiece(nextPiece)
+    setCurrentColor(nextPiece.color)
+    setNextPiece(PIECES[Math.floor(Math.random() * PIECES.length)])
+    setPosition({ x: 4, y: 0 })
+    setCanHold(true) // Reset hold ability after hard drop
+
+    if (!isValidMove(nextPiece, 4, 0)) {
+      setGameOver(true)
+    }
+  }, [currentPiece, position, board, isValidMove, nextPiece])
+
+  const holdCurrentPiece = useCallback(() => {
+    if (!canHold) return
+    
+    if (holdPiece === null) {
+      // First time holding - store current piece and get next piece
+      setHoldPiece(currentPiece)
+      setCurrentPiece(nextPiece)
+      setCurrentColor(nextPiece.color)
+      setNextPiece(PIECES[Math.floor(Math.random() * PIECES.length)])
+    } else {
+      // Swap current piece with held piece
+      const temp = currentPiece
+      setCurrentPiece(holdPiece)
+      setCurrentColor(holdPiece.color)
+      setHoldPiece(temp)
+    }
+    
+    setPosition({ x: 4, y: 0 })
+    setCanHold(false) // Prevent holding again until next piece
+  }, [canHold, holdPiece, currentPiece, nextPiece])
+
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (gameOver) return
+      if (gameOver || !isInitialized) return
       
       switch (e.key) {
         case 'ArrowLeft':
@@ -167,27 +246,38 @@ export default function Home() {
         case 'ArrowDown':
           moveDown()
           break
+        case 'ArrowUp':
+          hardDrop()
+          break
         case ' ':
           rotatePiece()
+          break
+        case 'h':
+        case 'H':
+          holdCurrentPiece()
           break
       }
     }
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [moveLeft, moveRight, moveDown, rotatePiece, gameOver])
+  }, [moveLeft, moveRight, moveDown, hardDrop, rotatePiece, holdCurrentPiece, gameOver, isInitialized])
 
   useEffect(() => {
-    if (gameOver) return
+    if (gameOver || !isInitialized) return
     
     const interval = setInterval(() => {
       moveDown()
     }, TICK_SPEED)
 
     return () => clearInterval(interval)
-  }, [moveDown, gameOver])
+  }, [moveDown, gameOver, isInitialized])
 
   const renderBoard = () => {
+    if (!isInitialized) {
+      return Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0))
+    }
+    
     const displayBoard = board.map(row => [...row])
     const shape = currentPiece.shape
     
@@ -211,9 +301,34 @@ export default function Home() {
       {gameOver && <h1 style={{ color: 'red' }}>Game Over</h1>}
       <div style={{ display: 'flex', gap: '20px' }}>
         <div>
+          <h3 style={{ margin: '0 0 10px 0' }}>Hold</h3>
+          <div style={{ border: '2px solid #333', padding: '10px', backgroundColor: '#111', minHeight: '80px', minWidth: '80px' }}>
+            {holdPiece ? (
+              holdPiece.shape.map((row, y) => (
+                <div key={y} style={{ display: 'flex' }}>
+                  {row.map((cell, x) => (
+                    <div
+                      key={x}
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: cell ? holdPiece.color : 'transparent',
+                        border: cell ? '1px solid #333' : 'none',
+                        opacity: canHold ? 1 : 0.5
+                      }}
+                    />
+                  ))}
+                </div>
+              ))
+            ) : (
+              <div style={{ color: '#666', fontSize: '12px', textAlign: 'center', paddingTop: '30px' }}>Empty</div>
+            )}
+          </div>
+        </div>
+        <div>
           <h3 style={{ margin: '0 0 10px 0' }}>Next</h3>
           <div style={{ border: '2px solid #333', padding: '10px', backgroundColor: '#111' }}>
-            {nextPiece.shape.map((row, y) => (
+            {isInitialized && nextPiece.shape.map((row, y) => (
               <div key={y} style={{ display: 'flex' }}>
                 {row.map((cell, x) => (
                   <div
@@ -252,7 +367,7 @@ export default function Home() {
           <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{score}</div>
         </div>
       </div>
-      <p style={{ marginTop: '10px' }}>Arrow Keys: Move | Space: Rotate</p>
+      <p style={{ marginTop: '10px' }}>Arrow Keys: Move | Up: Hard Drop | Space: Rotate | H: Hold</p>
     </div>
   )
 }
