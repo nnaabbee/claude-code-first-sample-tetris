@@ -10,7 +10,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={{
+        margin: 0,
+        padding: 0,
+        backgroundColor: '#000',
+        color: '#fff',
+        fontFamily: 'monospace',
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column'
+      }}>{children}</body>
     </html>
   )
 }

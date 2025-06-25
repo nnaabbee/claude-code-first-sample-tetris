@@ -18,6 +18,7 @@ export default function Home() {
     canHold,
     position,
     gameOver,
+    isPaused,
     score,
     isInitialized,
     lockedCells,
@@ -27,6 +28,7 @@ export default function Home() {
     rotatePiece,
     hardDrop,
     holdCurrentPiece,
+    togglePause,
     renderBoard
   } = useGameLogic()
   
@@ -41,6 +43,15 @@ export default function Home() {
   React.useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (gameOver || !isInitialized) return
+      
+      // Allow pause/resume even when paused
+      if (e.key === 'p' || e.key === 'P') {
+        togglePause()
+        return
+      }
+      
+      // Block other controls when paused
+      if (isPaused) return
       
       switch (e.key) {
         case 'a':
@@ -76,15 +87,25 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyPress)
     return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [moveLeft, moveRight, moveDown, hardDrop, rotatePiece, holdCurrentPiece, gameOver, isInitialized])
+  }, [moveLeft, moveRight, moveDown, hardDrop, rotatePiece, holdCurrentPiece, togglePause, gameOver, isInitialized, isPaused])
 
   const restartGame = () => {
     window.location.reload()
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '20px' }}>
-      <div style={{ display: 'flex', gap: '20px' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center',
+      minHeight: '100vh',
+      backgroundColor: '#000',
+      margin: 0,
+      padding: '20px',
+      boxSizing: 'border-box'
+    }}>
+      <div style={{ display: 'flex', gap: '30px', alignItems: 'flex-start' }}>
         <HoldPiece holdPiece={holdPiece} canHold={canHold} />
         <NextPiece nextPiece={nextPiece} isInitialized={isInitialized} />
         <GameBoard 
@@ -95,8 +116,10 @@ export default function Home() {
         <ScoreDisplay 
           score={score}
           gameOver={gameOver}
+          isPaused={isPaused}
           isBGMPlaying={isBGMPlaying}
           onToggleBGM={toggleBGM}
+          onTogglePause={togglePause}
           onRestart={restartGame}
         />
       </div>

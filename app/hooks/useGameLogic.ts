@@ -14,6 +14,7 @@ export const useGameLogic = () => {
   const [canHold, setCanHold] = useState(true)
   const [position, setPosition] = useState<Position>({ x: 4, y: 0 })
   const [gameOver, setGameOver] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
   const [score, setScore] = useState(0)
   const [isInitialized, setIsInitialized] = useState(false)
   const [lockedCells, setLockedCells] = useState<Set<string>>(new Set())
@@ -237,16 +238,21 @@ export const useGameLogic = () => {
     setCanHold(false)
   }, [canHold, holdPiece, currentPiece, nextPiece, getNextPieceFromBag, updateBags])
 
+  const togglePause = useCallback(() => {
+    if (gameOver) return
+    setIsPaused(prev => !prev)
+  }, [gameOver])
+
   // Auto-fall logic
   useEffect(() => {
-    if (gameOver || !isInitialized) return
+    if (gameOver || !isInitialized || isPaused) return
     
     const interval = setInterval(() => {
       moveDown()
     }, TICK_SPEED)
 
     return () => clearInterval(interval)
-  }, [moveDown, gameOver, isInitialized])
+  }, [moveDown, gameOver, isInitialized, isPaused])
 
   const renderBoard = () => {
     if (!isInitialized) {
@@ -281,6 +287,7 @@ export const useGameLogic = () => {
     canHold,
     position,
     gameOver,
+    isPaused,
     score,
     isInitialized,
     lockedCells,
@@ -292,6 +299,7 @@ export const useGameLogic = () => {
     rotatePiece,
     hardDrop,
     holdCurrentPiece,
+    togglePause,
     
     // Render
     renderBoard

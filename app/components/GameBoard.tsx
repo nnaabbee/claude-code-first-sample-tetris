@@ -16,11 +16,11 @@ export const GameBoard: React.FC<GameBoardProps> = ({ board, currentColor, locke
             <div
               key={x}
               style={{
-                width: '20px',
-                height: '20px',
+                width: '30px',
+                height: '30px',
                 backgroundColor: cell === 0 ? '#111' : cell === -1 ? currentColor : PIECES[cell - 1]?.color || '#999',
                 border: '1px solid #333',
-                boxShadow: lockedCells.has(`${x}-${y}`) ? '0 0 10px #fff, inset 0 0 10px #fff' : 'none',
+                boxShadow: lockedCells.has(`${x}-${y}`) ? '0 0 15px #fff, inset 0 0 15px #fff' : 'none',
                 transform: lockedCells.has(`${x}-${y}`) ? 'scale(1.1)' : 'scale(1)',
                 transition: 'all 0.2s ease'
               }}
